@@ -1,0 +1,41 @@
+Modify the Polymarket Dashboard to use real trading data from the autonomous trader instead of mock data.
+
+CURRENT SETUP:
+- Dashboard is at: /Users/aniketsindhu/.openclaw/workspace/polymarket-dashboard
+- Trading data is at: /Users/aniketsindhu/.openclaw/workspace/polymarket-agents-official/data/autonomous_trader_state.json
+- Dashboard currently uses mock data in lib/data.ts
+
+CHANGES NEEDED:
+
+1. Update lib/data.ts to read from the real trading data file:
+   - Read from: ../polymarket-agents-official/data/autonomous_trader_state.json
+   - Parse the JSON structure: { positions: [], closed_positions: [], realized_pnl: number, cycle_count: number }
+   - Map the data to the TradingData interface
+   - Add live price fetching for open positions (fetch current prices from Polymarket API)
+   - Calculate current P&L for each open position
+
+2. Update lib/types.ts if needed to match the actual data structure
+
+3. Create a simple API route (app/api/data/route.ts) that serves the trading data:
+   - Read the JSON file
+   - Fetch live prices for open positions
+   - Return combined data
+   - This will be called by the dashboard components
+
+4. Update the dashboard components to fetch from the API:
+   - Modify fetchTradingData() to call /api/data
+   - Keep the same component structure, just change data source
+   - Auto-refresh every 30 seconds
+
+5. Handle errors gracefully:
+   - If file doesn't exist, return empty data
+   - If API fails, show loading state
+   - Add error boundaries
+
+The dashboard should now show:
+- Real open positions from the trader
+- Real closed trades with actual P&L
+- Live calculated P&L based on current market prices
+- Real-time updates every 30 seconds
+
+Generate all necessary files and modifications.
