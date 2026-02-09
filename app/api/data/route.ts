@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { readFile } from 'fs/promises'
 import path from 'path'
-import { redis, getTradingStateFromRedis, TRADING_STATE_KEY } from '@/lib/redis'
+import { getTradingStateFromRedis } from '@/lib/redis'
 import type {
   TradingData,
   Position,
