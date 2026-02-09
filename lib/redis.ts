@@ -1,43 +1,62 @@
-// Simple Redis client for Vercel serverless
-// Uses basic fetch approach instead of persistent connections
+// Simple Redis REST API client for Vercel serverless
+// Compatible with Upstash Redis
 
 const REDIS_URL = process.env.REDIS_URL || process.env.KV_URL
+const KV_REST_API_URL = process.env.KV_REST_API_URL
+const KV_REST_API_TOKEN = process.env.KV_REST_API_TOKEN
 
 export function isRedisConfigured(): boolean {
-  return !!REDIS_URL
+  return !!(REDIS_URL || KV_REST_API_URL)
+}
+
+function getRestApiConfig() {
+  // Prefer Vercel KV environment variables
+  if (KV_REST_API_URL && KV_REST_API_TOKEN) {
+    return {
+      baseUrl: KV_REST_API_URL,
+      token: KV_REST_API_TOKEN,
+    }
+  }
+  
+  // Parse from REDIS_URL
+  if (!REDIS_URL) {
+    return null
+  }
+  
+  try {
+    const url = new URL(REDIS_URL)
+    // Upstash REST API format: https://host/rest/command/arg1/arg2
+    const restUrl = `https://${url.host}`
+    const token = url.password
+    
+    return { baseUrl: restUrl, token }
+  } catch {
+    return null
+  }
 }
 
 export async function getTradingStateFromRedis(): Promise<any | null> {
-  if (!REDIS_URL) {
+  const config = getRestApiConfig()
+  if (!config) {
     return null
   }
 
   try {
-    // Parse Redis URL
-    const url = new URL(REDIS_URL)
-    const isTls = REDIS_URL.startsWith('rediss://')
-    
-    // Use Upstash REST API format
-    // Format: https://host/command/arg1/arg2...
-    const restUrl = `https://${url.host}/get/trading:state`
-    
-    const response = await fetch(restUrl, {
-      method: 'GET',
+    const response = await fetch(`${config.baseUrl}/get/trading:state`, {
       headers: {
-        'Authorization': `Bearer ${url.password}`,
+        'Authorization': `Bearer ${config.token}`,
       },
-      // Short timeout for serverless
-      signal: AbortSignal.timeout(3000),
+      signal: AbortSignal.timeout(5000),
     })
 
     if (!response.ok) {
-      console.log('Redis REST API error:', response.status)
+      console.error('Redis REST API error:', response.status, await response.text())
       return null
     }
 
     const result = await response.json()
     
-    // Upstash returns { result: "base64encoded" }
+    // Upstash returns { result: "value" } or { result: null }
     if (result.result) {
       return JSON.parse(result.result)
     }
@@ -50,20 +69,19 @@ export async function getTradingStateFromRedis(): Promise<any | null> {
 }
 
 export async function setTradingStateInRedis(state: any): Promise<void> {
-  if (!REDIS_URL) {
+  const config = getRestApiConfig()
+  if (!config) {
     throw new Error('Redis not configured')
   }
 
+  const value = JSON.stringify(state)
+  
   try {
-    const url = new URL(REDIS_URL)
-    const restUrl = `https://${url.host}/set/trading:state/${encodeURIComponent(JSON.stringify(state))}`
-    
-    const response = await fetch(restUrl, {
-      method: 'GET',
+    const response = await fetch(`${config.baseUrl}/set/trading:state/${encodeURIComponent(value)}`, {
       headers: {
-        'Authorization': `Bearer ${url.password}`,
+        'Authorization': `Bearer ${config.token}`,
       },
-      signal: AbortSignal.timeout(3000),
+      signal: AbortSignal.timeout(5000),
     })
 
     if (!response.ok) {
