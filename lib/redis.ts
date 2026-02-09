@@ -1,102 +1,76 @@
-import Redis from 'ioredis'
+// Simple Redis client for Vercel serverless
+// Uses basic fetch approach instead of persistent connections
 
 const REDIS_URL = process.env.REDIS_URL || process.env.KV_URL
-
-let redis: Redis | null = null
 
 export function isRedisConfigured(): boolean {
   return !!REDIS_URL
 }
 
-export function getRedisClient(): Redis | null {
-  if (redis) {
-    return redis
-  }
-  
+export async function getTradingStateFromRedis(): Promise<any | null> {
   if (!REDIS_URL) {
-    console.warn('REDIS_URL not set. Redis features will be disabled.')
     return null
   }
-  
-  // Create new Redis instance with optimized settings for serverless
-  const isTls = REDIS_URL.startsWith('rediss://')
-  
-  redis = new Redis(REDIS_URL, {
-    // TLS configuration for Upstash
-    ...(isTls && {
-      tls: {
-        rejectUnauthorized: false
-      }
-    }),
-    // Optimized for serverless/edge
-    connectTimeout: 5000,      // 5s connection timeout
-    commandTimeout: 3000,      // 3s command timeout
-    lazyConnect: true,         // Don't connect immediately
-    keepAlive: 0,              // Disable keep-alive for serverless
-    maxRetriesPerRequest: 1,   // Minimize retries
-    enableOfflineQueue: false, // Don't queue offline commands
-    retryStrategy: (times) => {
-      // Don't retry on serverless
-      return null
-    }
-  })
-  
-  return redis
-}
 
-export const TRADING_STATE_KEY = 'trading:state'
-
-export async function getTradingStateFromRedis() {
-  const client = getRedisClient()
-  if (!client) {
-    throw new Error('Redis not configured')
-  }
-  
   try {
-    // Ensure connection before command
-    if (client.status !== 'ready') {
-      await client.connect().catch(() => {
-        // Connection failed
-      })
-    }
+    // Parse Redis URL
+    const url = new URL(REDIS_URL)
+    const isTls = REDIS_URL.startsWith('rediss://')
     
-    if (client.status !== 'ready') {
-      throw new Error('Redis not connected')
-    }
+    // Use Upstash REST API format
+    // Format: https://host/command/arg1/arg2...
+    const restUrl = `https://${url.host}/get/trading:state`
     
-    const data = await client.get(TRADING_STATE_KEY)
-    if (!data) {
+    const response = await fetch(restUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${url.password}`,
+      },
+      // Short timeout for serverless
+      signal: AbortSignal.timeout(3000),
+    })
+
+    if (!response.ok) {
+      console.log('Redis REST API error:', response.status)
       return null
     }
+
+    const result = await response.json()
     
-    return JSON.parse(data)
-  } finally {
-    // Disconnect immediately for serverless
-    try {
-      await client.disconnect()
-    } catch {}
+    // Upstash returns { result: "base64encoded" }
+    if (result.result) {
+      return JSON.parse(result.result)
+    }
+    
+    return null
+  } catch (err: any) {
+    console.error('Redis fetch error:', err?.message)
+    return null
   }
 }
 
-export async function setTradingStateInRedis(state: any) {
-  const client = getRedisClient()
-  if (!client) {
+export async function setTradingStateInRedis(state: any): Promise<void> {
+  if (!REDIS_URL) {
     throw new Error('Redis not configured')
   }
-  
+
   try {
-    if (client.status !== 'ready') {
-      await client.connect().catch(() => {})
-    }
+    const url = new URL(REDIS_URL)
+    const restUrl = `https://${url.host}/set/trading:state/${encodeURIComponent(JSON.stringify(state))}`
     
-    if (client.status !== 'ready') {
-      throw new Error('Redis not connected')
+    const response = await fetch(restUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${url.password}`,
+      },
+      signal: AbortSignal.timeout(3000),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Redis set failed: ${response.status}`)
     }
-    
-    await client.set(TRADING_STATE_KEY, JSON.stringify(state))
-  } finally {
-    try {
-      await client.disconnect()
-    } catch {}
+  } catch (err: any) {
+    console.error('Redis set error:', err?.message)
+    throw err
   }
 }

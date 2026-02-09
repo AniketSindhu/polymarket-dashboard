@@ -91,11 +91,7 @@ export async function GET() {
       }
     } catch (err: any) {
       console.error('Redis error:', err?.message || err)
-      return NextResponse.json({ 
-        error: 'Redis connection failed', 
-        message: err?.message,
-        ...emptyData() 
-      }, { status: 500 })
+      // Don't return error - fall through to filesystem
     }
   } else {
     console.log('Redis not configured')
