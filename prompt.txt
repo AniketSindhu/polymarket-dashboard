@@ -1,0 +1,46 @@
+Create a Next.js 14 trading dashboard for Polymarket with the following features:
+
+1. **Dashboard Layout**:
+   - Sidebar navigation (Dashboard, Positions, History, Analytics)
+   - Top bar with total P&L, win rate, active positions count
+   - Responsive design with Tailwind CSS
+
+2. **Main Dashboard Page**:
+   - Cards showing: Total P&L, Realized P&L, Unrealized P&L, Win Rate, Total Trades
+   - Chart showing P&L over time (using Recharts)
+   - Recent trades table with status (Open/Closed)
+   - Active positions list with current P&L
+
+3. **Positions Page**:
+   - Table of all open positions
+   - Columns: Market, Strategy, Entry Price, Current Price, P&L %, P&L $, Actions
+   - Color coding: Green for profit, Red for loss
+   - Auto-refresh every 30 seconds
+
+4. **History Page**:
+   - Table of all closed trades
+   - Columns: Market, Strategy, Entry/Exit Price, P&L, Exit Reason, Date
+   - Filter by strategy, date range
+   - Pagination
+
+5. **Data Structure** (mock data for now):
+   - Use the trading data format from ../polymarket-agents-official/data/autonomous_trader_state.json
+   - Positions have: market_id, question, strategy, action, size, entry_price, edge, confidence, timestamp
+   - Closed positions add: exit_timestamp, exit_price, realized_pnl, exit_reason
+
+6. **Technical Requirements**:
+   - Next.js 14 App Router
+   - TypeScript
+   - Tailwind CSS for styling
+   - Recharts for charts
+   - Lucide React for icons
+   - shadcn/ui components (button, card, table, badge)
+
+7. **UI/UX**:
+   - Dark theme by default
+   - Clean, modern finance/trading aesthetic
+   - Loading states
+   - Error handling
+   - Mobile responsive
+
+Generate all files: package.json, next.config.js, tsconfig.json, tailwind.config.js, app/layout.tsx, app/page.tsx, app/positions/page.tsx, app/history/page.tsx, components/, lib/utils.ts, and any other necessary files.
