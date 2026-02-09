@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { readFile } from 'fs/promises'
 import path from 'path'
+import { redis, getTradingStateFromRedis, TRADING_STATE_KEY } from '@/lib/redis'
 import type {
   TradingData,
   Position,
@@ -19,8 +20,6 @@ function mapPosition(raw: RawPosition, lastPrices: RawTraderState['last_prices']
   const priceInfo = lastPrices[raw.market_id]
   const currentPrice = priceInfo?.price ?? raw.entry_price
   const pnlPct = priceInfo?.pnl_pct ?? 0
-
-  // Dollar P&L: size * pnl_pct (since size is dollar amount invested)
   const currentPnL = raw.size * pnlPct
 
   return {
@@ -35,7 +34,7 @@ function mapPosition(raw: RawPosition, lastPrices: RawTraderState['last_prices']
     confidence: raw.confidence,
     timestamp: raw.timestamp,
     currentPnL,
-    currentPnLPct: pnlPct * 100, // Convert to percentage
+    currentPnLPct: pnlPct * 100,
   }
 }
 
@@ -68,6 +67,31 @@ function emptyData(): TradingData {
 }
 
 export async function GET() {
+  // Try Redis first
+  if (redis) {
+    try {
+      const redisData = await getTradingStateFromRedis()
+      if (redisData) {
+        const positions = (redisData.positions || []).map((p: RawPosition) =>
+          mapPosition(p, redisData.last_prices || {})
+        )
+        const closedPositions = (redisData.closed_positions || []).map(mapClosedPosition)
+        
+        return NextResponse.json({
+          positions,
+          closedPositions,
+          realizedPnL: redisData.realized_pnl ?? 0,
+          cycleCount: redisData.cycle_count ?? 0,
+          lastRun: redisData.last_run,
+          source: 'redis',
+        })
+      }
+    } catch (err) {
+      console.error('Redis error:', err)
+    }
+  }
+  
+  // Fall back to file system
   try {
     const fileContent = await readFile(STATE_FILE_PATH, 'utf-8')
     const raw: RawTraderState = JSON.parse(fileContent)
@@ -75,20 +99,17 @@ export async function GET() {
     const positions = (raw.positions || []).map((p) =>
       mapPosition(p, raw.last_prices || {})
     )
-
     const closedPositions = (raw.closed_positions || []).map(mapClosedPosition)
 
-    const data: TradingData = {
+    return NextResponse.json({
       positions,
       closedPositions,
       realizedPnL: raw.realized_pnl ?? 0,
       cycleCount: raw.cycle_count ?? 0,
       lastRun: raw.last_run,
-    }
-
-    return NextResponse.json(data)
+      source: 'filesystem',
+    })
   } catch (err: any) {
-    // File doesn't exist or is malformed — return empty data
     console.error('Failed to read trader state:', err?.message)
     return NextResponse.json(emptyData())
   }

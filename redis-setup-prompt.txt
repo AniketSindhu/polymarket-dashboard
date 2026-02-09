@@ -1,0 +1,19 @@
+Setup real-time database for Polymarket Dashboard using Upstash Redis:
+
+1. Create Upstash Redis instance at https://console.upstash.com
+2. Get the Redis URL and token
+3. Install ioredis in both projects
+4. Update autonomous_trader.py to write to Redis every cycle
+5. Update dashboard API route to read from Redis
+6. Add environment variables for Redis connection
+
+Changes needed:
+- Install: npm install ioredis
+- Update lib/data.ts to fetch from Redis API
+- Create lib/redis.ts for Redis client
+- Update app/api/data/route.ts to use Redis
+- Add REDIS_URL to environment variables
+
+The data should be stored as JSON in Redis key "trading:state" and updated every 3 minutes by the trader.
+
+Generate all necessary code changes.
