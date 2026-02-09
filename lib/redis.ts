@@ -4,7 +4,11 @@ const REDIS_URL = process.env.REDIS_URL || process.env.KV_URL
 
 let redis: Redis | null = null
 
-function getRedisClient(): Redis | null {
+export function isRedisConfigured(): boolean {
+  return !!REDIS_URL
+}
+
+export function getRedisClient(): Redis | null {
   if (redis) {
     return redis
   }

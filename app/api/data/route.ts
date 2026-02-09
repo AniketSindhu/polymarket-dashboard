@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { readFile } from 'fs/promises'
 import path from 'path'
-import { getTradingStateFromRedis } from '@/lib/redis'
+import { getTradingStateFromRedis, isRedisConfigured } from '@/lib/redis'
 import type {
   TradingData,
   Position,
@@ -68,7 +68,7 @@ function emptyData(): TradingData {
 
 export async function GET() {
   // Try Redis first
-  if (redis) {
+  if (isRedisConfigured()) {
     try {
       console.log('Connecting to Redis...')
       const redisData = await getTradingStateFromRedis()
