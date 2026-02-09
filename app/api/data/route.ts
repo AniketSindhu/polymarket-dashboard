@@ -70,7 +70,10 @@ export async function GET() {
   // Try Redis first
   if (redis) {
     try {
+      console.log('Connecting to Redis...')
       const redisData = await getTradingStateFromRedis()
+      console.log('Redis data fetched:', redisData ? 'found' : 'not found')
+      
       if (redisData) {
         const positions = (redisData.positions || []).map((p: RawPosition) =>
           mapPosition(p, redisData.last_prices || {})
@@ -86,9 +89,16 @@ export async function GET() {
           source: 'redis',
         })
       }
-    } catch (err) {
-      console.error('Redis error:', err)
+    } catch (err: any) {
+      console.error('Redis error:', err?.message || err)
+      return NextResponse.json({ 
+        error: 'Redis connection failed', 
+        message: err?.message,
+        ...emptyData() 
+      }, { status: 500 })
     }
+  } else {
+    console.log('Redis not configured')
   }
   
   // Fall back to file system

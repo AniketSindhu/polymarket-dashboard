@@ -6,7 +6,16 @@ if (!REDIS_URL) {
   console.warn('REDIS_URL not set. Redis features will be disabled.')
 }
 
-export const redis = REDIS_URL ? new Redis(REDIS_URL) : null
+// Configure Redis with TLS for Upstash
+export const redis = REDIS_URL 
+  ? new Redis(REDIS_URL, {
+      tls: REDIS_URL.startsWith('rediss://') ? {
+        rejectUnauthorized: false
+      } : undefined,
+      connectTimeout: 10000,
+      commandTimeout: 5000,
+    }) 
+  : null
 
 export const TRADING_STATE_KEY = 'trading:state'
 
